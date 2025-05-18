@@ -1,0 +1,89 @@
+const express = require("express");
+const bodyParser = require("body-parser");
+const { Sequelize, DataTypes, Model } = require("sequelize");
+const app = express();
+const port = 3000;
+
+// Setup middleware
+app.use(bodyParser.json());
+
+// Setup Sequelize
+const sequelize = new Sequelize("sqlite:trivia.db");
+
+// Define model
+class Question extends Model { }
+// EXAMPLE POST
+// {
+//      "category": "Science",
+//      "question": "What is the chemical symbol for water?",
+//      "choices": ["H2O", "CO2", "NaCl", "O2"],
+//      "answer": "H2O"
+// }
+Question.init({
+    category: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    question: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    answer: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    choices: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        get() {
+            const raw = this.getDataValue("choices");
+            return JSON.parse(raw);
+        },
+        set(value) {
+            this.setDataValue("choices", JSON.stringify(value));
+        }
+    }
+}, {
+    sequelize,
+    modelName: "question",
+    tableName: "trivia",
+    timestamps: false
+});
+
+// Create a new question
+app.post("/questions", async (req, res) => {
+    try {
+        const question = await Question.create(req.body);
+        res.status(201).json(question);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get all questions
+app.get("/questions", async (req, res) => {
+    try {
+        const questions = await Question.findAll();
+        res.json(questions);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to retrieve all questions" });
+    }
+});
+
+//  get random question
+app.get("/questions/random", async (req, res) => {
+    try {
+        const allIds = await Question.findAll({ attributes: ['id'] });
+        const randId = allIds[Math.floor(Math.random() * allIds.length)].id;
+        const randQuestion = await Question.findByPk(randId);
+        res.json(randQuestion);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to retrieve single random question" });
+    }
+});
+
+
+
+app.listen(port, () => {
+    console.log("Server running at http://localhost:${port}");
+});
